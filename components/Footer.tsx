@@ -42,7 +42,6 @@ export default function Footer() {
             <div className="absolute inset-0 bg-linear-to-r from-blue-600/5 via-transparent to-purple-600/5 pointer-events-none" />
             <div className="absolute top-0 left-1/4 w-72 h-72 bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
             <div className="absolute bottom-0 right-1/4 w-72 h-72 bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
-
             <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-16">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-12 pb-12 border-b border-white/5">
                     <div className="max-w-md">
@@ -57,9 +56,7 @@ export default function Footer() {
                         </Link>
 
                         <p className="text-sm leading-7 text-slate-400">
-                            AI-powered collaborative doubt solving platform built
-                            to simplify classroom learning, discussions, and doubt
-                            resolution for students and educators.
+                            Simplifying classroom doubt solving with AI.
                         </p>
                     </div>
 
