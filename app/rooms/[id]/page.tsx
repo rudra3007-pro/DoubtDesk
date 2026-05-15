@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useHotkeys } from "react-hotkeys-hook";
 import { useAppUser } from "../../provider";
 import { 
     Brain, 
@@ -61,7 +62,17 @@ export default function ClassroomPage() {
     const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
     const [copied, setCopied] = useState(false);
     const [doubtFilter, setDoubtFilter] = useState<'pending' | 'solved'>('pending');
+<<<<<<< Updated upstream
     const [tabCache, setTabCache] = useState<Record<string, any>>({});
+=======
+    
+    useHotkeys("n", (e) => {
+        e.preventDefault();
+        setIsAskModalOpen(true);
+    }, {
+        enableOnFormTags: false,
+    });
+>>>>>>> Stashed changes
 
     useEffect(() => {
         initialFetch();

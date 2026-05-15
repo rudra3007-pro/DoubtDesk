@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Send, CheckCircle, MessageSquare, Loader2, Upload, File, ZoomIn, MoreVertical, Pencil, Trash2, PlusCircle } from "lucide-react";
+import { X, Send, CheckCircle, MessageSquare, Loader2, Upload, File, ZoomIn, MoreVertical, Pencil, Trash2, PlusCircle, ThumbsUp } from "lucide-react";
 import { toast } from "sonner";
 
 interface Reply {
@@ -62,6 +62,16 @@ export default function DoubtRepliesModal({ doubt, isOpen, onClose, onReplyChang
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [replies]);
+    
+    useEffect(() => {
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        if (isOpen) {
+            window.addEventListener("keydown", handleEsc);
+        }
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, [isOpen, onClose]);
 
     const fetchReplies = async () => {
         const storedUserName = localStorage.getItem("anonymous_user") || "";
@@ -593,6 +603,12 @@ export default function DoubtRepliesModal({ doubt, isOpen, onClose, onReplyChang
                             <textarea
                                 value={solutionContent}
                                 onChange={(e) => setSolutionContent(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                                        e.preventDefault();
+                                        handlePostOrUpdate();
+                                    }
+                                }}
                                 placeholder="Explain your solution clearly and step-by-step..."
                                 className="w-full h-40 bg-slate-950/50 border border-white/10 rounded-[1.5rem] p-5 text-white text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all resize-none font-medium leading-relaxed placeholder:text-slate-600 shadow-inner"
                             />
@@ -672,7 +688,12 @@ export default function DoubtRepliesModal({ doubt, isOpen, onClose, onReplyChang
                                     type="text"
                                     value={chatText}
                                     onChange={(e) => setChatText(e.target.value)}
-                                    onKeyPress={(e) => e.key === 'Enter' && handlePost('comment')}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                            e.preventDefault();
+                                            handlePost('comment');
+                                        }
+                                    }}
                                     placeholder="Ask for clarification or chat with peers..."
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 flex-1 pl-6 pr-14 text-white text-sm focus:outline-none focus:border-blue-500/50 transition-all font-medium"
                                 />
