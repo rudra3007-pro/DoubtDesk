@@ -102,7 +102,7 @@ export async function GET(req: Request) {
         const limit = limitStr ? parseInt(limitStr) : 20;
         const offset = offsetStr ? parseInt(offsetStr) : (page - 1) * limit;
 
-        let doubts = await query.where(and(...conditions));
+        let doubts: any[] = await query.where(and(...conditions));
 
         if (tag && tag !== "All" && doubts.length > 0) {
             const normalizedTag = tag.trim().replace(/\s+/g, " ").toLowerCase();
