@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useAuth } from "@clerk/nextjs"
 import { Bell, Check, Loader2 } from "lucide-react"
 import useSWR from "swr"
 import Link from "next/link"
@@ -20,21 +21,40 @@ interface Notification extends NotificationRecord {
     createdAt: string;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+const fetcher = async (url: string) => {
+    const res = await fetch(url)
+
+    if (!res.ok) {
+        throw new Error(`Failed to fetch notifications: ${res.status}`)
+    }
+
+    return res.json()
+}
 
 export default function NotificationBell() {
     const [isOpen, setIsOpen] = useState(false)
+    const [isPollingPaused, setIsPollingPaused] = useState(false)
     const router = useRouter()
+    const { isLoaded, isSignedIn } = useAuth()
+    const shouldFetchNotifications = isLoaded && isSignedIn && !isPollingPaused
 
-    const { data, error, mutate } = useSWR('/api/notifications', fetcher, {
-        refreshInterval: 30000,
-    })
-
-    const unreadCount = data?.unreadCount || 0
-    const notifications: Notification[] = data?.notifications || []
-    const isLoading = !data && !error
+    const { data, error, mutate } = useSWR(
+        shouldFetchNotifications ? '/api/notifications' : null,
+        fetcher,
+        {
+            refreshInterval: 30000,
+            shouldRetryOnError: false,
+            onError: () => setIsPollingPaused(true),
+        }
+    )
 
     useEffect(() => {
+        setIsPollingPaused(false)
+    }, [isSignedIn])
+
+    useEffect(() => {
+        if (!isLoaded || !isSignedIn) return
+
         const source = new EventSource('/api/notifications/stream')
 
         source.addEventListener('notification', (event) => {
@@ -83,55 +103,75 @@ export default function NotificationBell() {
         return () => {
             source.close()
         }
-    }, [mutate, router])
+    }, [isLoaded, isSignedIn, mutate, router])
+
+    const retryFetch = () => {
+        setIsPollingPaused(false)
+    }
+
+    const updateNotification = async (body: Record<string, unknown>) => {
+        const res = await fetch('/api/notifications', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        })
+
+        if (!res.ok) {
+            throw new Error(`Failed to update notifications: ${res.status}`)
+        }
+    }
+
+    const applyOptimisticRead = (notificationId?: number) => mutate((currentData: any) => {
+        if (!currentData) return currentData
+
+        return {
+            ...currentData,
+            unreadCount: notificationId ? Math.max(0, currentData.unreadCount - 1) : 0,
+            notifications: currentData.notifications.map((n: Notification) =>
+                !notificationId || n.id === notificationId ? { ...n, isRead: true } : n
+            )
+        }
+    }, false)
+
+    const syncNotifications = () => {
+        if (!isSignedIn) return
+
+        setIsPollingPaused(false)
+        mutate()
+    }
+
+    if (!isLoaded || !isSignedIn) {
+        return null
+    }
+
+    const isLoadError = Boolean(error)
+    const unreadCount = data?.unreadCount || 0
+    const notifications: Notification[] = data?.notifications || []
+    const isLoading = shouldFetchNotifications && !data && !error
 
     const markAsRead = async (id: number) => {
-        // Optimistic update
-        mutate((currentData: any) => {
-            if (!currentData) return currentData
-            return {
-                ...currentData,
-                unreadCount: Math.max(0, currentData.unreadCount - 1),
-                notifications: currentData.notifications.map((n: Notification) => 
-                    n.id === id ? { ...n, isRead: true } : n
-                )
-            }
-        }, false)
+        applyOptimisticRead(id)
 
         try {
-            await fetch('/api/notifications', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notificationId: id })
-            })
-            // Re-validate to ensure sync
-            mutate()
+            await updateNotification({ notificationId: id })
+            syncNotifications()
         } catch (error) {
             console.error("Failed to mark as read", error)
+            syncNotifications()
         }
     }
 
     const markAllAsRead = async () => {
         if (unreadCount === 0) return
 
-        mutate((currentData: any) => {
-            if (!currentData) return currentData
-            return {
-                ...currentData,
-                unreadCount: 0,
-                notifications: currentData.notifications.map((n: Notification) => ({ ...n, isRead: true }))
-            }
-        }, false)
+        applyOptimisticRead()
 
         try {
-            await fetch('/api/notifications', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ markAllRead: true })
-            })
-            mutate()
+            await updateNotification({ markAllRead: true })
+            syncNotifications()
         } catch (error) {
             console.error("Failed to mark all as read", error)
+            syncNotifications()
         }
     }
 
@@ -170,6 +210,17 @@ export default function NotificationBell() {
                     {isLoading ? (
                         <div className="flex items-center justify-center h-32 text-muted-foreground">
                             <Loader2 className="h-5 w-5 animate-spin" />
+                        </div>
+                    ) : isLoadError ? (
+                        <div className="flex flex-col items-center justify-center h-32 text-center px-4 gap-3">
+                            <p className="text-sm text-muted-foreground">Could not load notifications.</p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={retryFetch}
+                            >
+                                Try again
+                            </Button>
                         </div>
                     ) : notifications.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-32 text-center px-4">
